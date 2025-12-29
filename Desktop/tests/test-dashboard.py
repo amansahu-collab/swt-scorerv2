@@ -17,7 +17,6 @@ st.title("🧠 Model-A vs Model-B Evaluation Comparison Dashboard")
 data = list(col.find({}, {"_id":0}))
 df = pd.DataFrame(data)
 
-st.write("📦 Total Records Loaded:", len(df))
 
 
 # ---------------- SCORE EXTRACTION ---------------- #
@@ -58,10 +57,6 @@ def extract_model_B(row):
 
 df["model_B_score"] = df.apply(extract_model_B, axis=1)
 
-
-# Sanity Check Display
-st.write("🟢 Model-A Score Extracted:", df["model_A_score"].notna().sum())
-st.write("🟢 Model-B Score Extracted:", df["model_B_score"].notna().sum())
 
 
 # ---------------- FILTERS ---------------- #
