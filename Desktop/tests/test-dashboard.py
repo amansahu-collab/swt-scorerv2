@@ -7,7 +7,7 @@ MONGO_URI = "mongodb+srv://shubhamgehlod_db_user:3HUdgGMZ10kMAvBa@languagetransc
 client = MongoClient(MONGO_URI)
 
 db = client["LA_writing-database"]
-col = db["evaluation-ai"]     # <- dataset confirmed
+col = db["evaluation-ai"]     # using this dataset
 
 
 # ---------------- UI ---------------- #
@@ -18,10 +18,9 @@ data = list(col.find({}, {"_id":0}))
 df = pd.DataFrame(data)
 
 
-
 # ---------------- SCORE EXTRACTION ---------------- #
 
-# Model-A extraction
+# Model-A
 def extract_model_A(row):
     ev = row.get("evaluation")
     if isinstance(ev, dict):
@@ -31,23 +30,23 @@ def extract_model_A(row):
 df["model_A_score"] = df.apply(extract_model_A, axis=1)
 
 
-# Model-B extraction (UNIVERSAL HANDLER)
+# Model-B (Universal parser)
 def extract_model_B(row):
     ev = row.get("evaluation_ai")
 
-    # Format 1 -> evaluation_ai[0].output[0].output (12 docs)
+    # Format 1 -> list
     try:
         return ev[0]["output"][0]["output"].get("content_score")
     except:
         pass
 
-    # Format 2 -> evaluation_ai.output[0].output (major docs)
+    # Format 2 -> dict.output
     try:
         return ev["output"][0]["output"].get("content_score")
     except:
         pass
 
-    # Format 3 -> fallback if direct dict
+    # Format 3 -> fallback safety
     try:
         return ev.get("output", [{}])[0].get("output", {}).get("content_score")
     except:
@@ -56,7 +55,6 @@ def extract_model_B(row):
     return None
 
 df["model_B_score"] = df.apply(extract_model_B, axis=1)
-
 
 
 # ---------------- FILTERS ---------------- #
@@ -70,78 +68,75 @@ filtered = df[
 ]
 
 
-# ---------------- OVERVIEW TABLE ---------------- #
-st.subheader("📄 Overview (A vs B Scores)")
-st.dataframe(filtered[["question","model_A_score","model_B_score"]], height=350)
+# ---------------- OVERVIEW (Now Summary instead of Question) ---------------- #
+st.subheader("📄 Summary View (A vs B Scores)")
+
+summary_view = filtered[["answer","model_A_score","model_B_score"]].rename(
+    columns={"answer":"summary"}
+)
+
+st.dataframe(summary_view, height=350)
 
 
 # ---------------- CSV EXPORT ---------------- #
-st.markdown("### 📥 Export CSV")
+st.markdown("### 📥 Download CSV (Summary + Scores)")
 
-export_df = filtered[["question","answer","model_A_score","model_B_score"]].copy()
-export_df["question_short"] = export_df["question"].apply(
-    lambda x: x[:60]+"..." if isinstance(x,str) and len(x)>60 else x
-)
+csv = summary_view.to_csv(index=False).encode("utf-8")
 
-csv = export_df.to_csv(index=False).encode("utf-8")
-st.download_button("⬇ Download CSV", csv, "model_comparison_results.csv")
+st.download_button("⬇ Download CSV", csv, "summary_scores_model_comparison.csv")
 
 
-# ---------------- DETAILED SIDE-BY-SIDE VIEW ---------------- #
+# ---------------- Detailed Comparison ---------------- #
 st.markdown("---")
-st.subheader("🔍 Detailed Side-by-Side Comparison")
+st.subheader("🔍 Detailed Comparison | Evaluation Breakdown")
 
 for row in filtered.to_dict("records"):
     A = row["model_A_score"]
     B = row["model_B_score"]
 
-    with st.expander(f"📝 {row['question'][:70]}... | A:{A} vs B:{B}"):
+    with st.expander(f"📝 Summary Preview: {row['answer'][:60]}... | A:{A} vs B:{B}"):
 
-        st.write("### 🔎 Question")
+        st.write("### 🧾 Question (for context)")
         st.write(row["question"])
 
-        st.write("### ✍ Student Answer")
+        st.write("### ✍ Student Summary")
         st.write(row["answer"])
 
-        colA,colB = st.columns(2)
+        colA, colB = st.columns(2)
 
-        # -------- Model A -------- #
+        # ------------ MODEL A ------------ #
         with colA:
-            st.markdown("### 🧠 Model-A Evaluation")
-
+            st.subheader("🧠 Model-A Evaluation")
             evA = row.get("evaluation") or {}
             diag = evA.get("diagnostics") or {}
 
-            st.write("**Score:**", evA.get("score"))
-            st.write("**Feedback:**", evA.get("feedback"))
-            st.write("**Missing Ideas:**", evA.get("missing_ideas"))
-            st.write("**Keypoints:**")
+            st.write("Score:", evA.get("score"))
+            st.write("Feedback:", evA.get("feedback"))
+            st.write("Missing Ideas:", evA.get("missing_ideas"))
+            st.write("Key Points:")
             st.json(diag.get("keypoints"))
 
 
-        # -------- Model B -------- #
+        # ------------ MODEL B ------------ #
         with colB:
-            st.markdown("### 🤖 Model-B Evaluation")
+            st.subheader("🤖 Model-B Evaluation")
 
             ev = row.get("evaluation_ai")
-
             try:
-                # auto detect format to display full block
                 evB = (ev[0]["output"][0]["output"]
                        if isinstance(ev, list)
                        else ev["output"][0]["output"])
 
-                st.write("**Score:**", evB.get("content_score"))
-                st.write("**Relevance:**", evB.get("relevance_level"))
-                st.write("**Covered Ideas:**")
+                st.write("Score:", evB.get("content_score"))
+                st.write("Relevance:", evB.get("relevance_level"))
+                st.write("Covered Ideas:")
                 st.json(evB.get("covered_ideas"))
-                st.write("**Missing Ideas:**")
+                st.write("Missing Ideas:")
                 st.json(evB.get("missing_ideas"))
-                st.write("**Feedback:**")
+                st.write("Feedback:")
                 st.write(evB.get("feedback"))
 
             except:
                 st.warning("⚠ Model-B evaluation missing/invalid")
-
 
         st.info(f"📌 Score Difference → A:{A} | B:{B} | Δ = {A-B}")
