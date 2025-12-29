@@ -12,11 +12,37 @@ col = db["evaluation-ai"]     # using this dataset
 
 # ---------------- UI ---------------- #
 st.set_page_config(page_title="Model Comparison Dashboard", layout="wide")
-st.title("🧠 Model-A vs Model-B Evaluation Comparison Dashboard")
+st.title("🧠 Semantic matching vs LLM ")
+st.markdown("<h2 style='text-align:center;'>Model Evaluation Comparison</h2>", unsafe_allow_html=True)
 
 data = list(col.find({}, {"_id":0}))
 df = pd.DataFrame(data)
 
+
+question_text = df.get("question", "No question found").iloc[0]
+
+# Center alignment block
+st.markdown("<p style='text-align:center; font-size:18px;'>QUESTION</p>", unsafe_allow_html=True)
+st.markdown(
+    f"""
+    <div style="
+        text-align:center;
+        font-size:15px;
+        font-weight:600;
+        padding:18px;
+        margin-top:10px;
+        margin-bottom:25px;
+        border-radius:10px;
+        background:#f5f5f5;
+        border:1px solid #ddd;
+        width:80%;
+        margin-left:auto;
+        margin-right:auto;">
+        {question_text}
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # ---------------- SCORE EXTRACTION ---------------- #
 
@@ -71,10 +97,11 @@ filtered = df[
 # ---------------- OVERVIEW (Now Summary instead of Question) ---------------- #
 st.subheader("📄 Summary View (A vs B Scores)")
 
+
 summary_view = filtered[["answer","model_A_score","model_B_score"]].rename(
     columns={"answer":"summary"}
 )
-
+st.markdown(f"**Total Summaries: {len(summary_view)}**")
 st.dataframe(summary_view, height=350)
 
 
