@@ -33,7 +33,7 @@ st.markdown(
         margin-top:10px;
         margin-bottom:25px;
         border-radius:10px;
-        background:#f5f5f5;
+        background:#8a8686;
         border:1px solid #ddd;
         width:80%;
         margin-left:auto;
